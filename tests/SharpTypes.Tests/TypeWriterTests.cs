@@ -2,13 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Dynamic;
 using System.IO;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace SharpTypes.Tests
 {
     public class TypeWriterTests
     {
-        private const string ExpectedMockType = "export interface MockType { }";
+        private const string ExpectedMockType = "export interface MockType { }\n";
 
         private readonly TypeWriter _typeWriter;
 
@@ -23,6 +24,7 @@ namespace SharpTypes.Tests
         [InlineData(typeof(List<MockType>), ExpectedMockType)]
         [InlineData(typeof(MockType[]), ExpectedMockType)]
         [InlineData(typeof(Dictionary<MockType, MockType>), "")]
+        [InlineData(typeof(Task<MockType>), ExpectedMockType)]
         [InlineData(typeof(string), "")]
         [InlineData(typeof(string[]), "")]
         [InlineData(typeof(IEnumerable<string>), "")]
@@ -56,7 +58,7 @@ namespace SharpTypes.Tests
                 "export interface MockSimpleTypes { id: number; name: string; guid: string; bool: boolean; " +
                 "int: number; uInt: number; long: number; uLong: number; short: number; uShort: number; " +
                 "byte: number; sByte: number; float: number; double: number; decimal: number; dateTime: string; "+
-                "arrayInt: number[]; listInt: number[]; collectionInt: number[]; }";
+                "arrayInt: number[]; listInt: number[]; collectionInt: number[]; }\n";
 
             using (var stringWriter = new StringWriter())
             {
@@ -76,7 +78,7 @@ namespace SharpTypes.Tests
             // Arrange
             const string expected = "export interface MockTypeComplex { mockType: MockType; arrayMockType: MockType[]; "+
                                     "listMockType: MockType[]; collectionMockType: MockType[]; dictionary: any; object: any; }\n" +
-                                    "export interface MockType { }";
+                                    "export interface MockType { }\n";
 
             using (var stringWriter = new StringWriter())
             {
@@ -86,6 +88,22 @@ namespace SharpTypes.Tests
 
                 // Assert
                 Assert.Equal(expected, result);
+            }
+        }
+
+        [Fact]
+        public void Write_GivenTheSameTypes_ShouldNotHaveDuplicates()
+        {
+            using (var stringWriter = new StringWriter())
+            {
+                // Act
+                _typeWriter.Write(typeof(MockType), stringWriter);
+                _typeWriter.Write(typeof(MockType), stringWriter);
+
+                var result = stringWriter.ToString();
+
+                // Assert
+                Assert.Equal(ExpectedMockType, result);
             }
         }
 

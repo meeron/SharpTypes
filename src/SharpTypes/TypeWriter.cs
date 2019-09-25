@@ -3,10 +3,11 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace SharpTypes
 {
-    public class TypeWriter
+    public sealed class TypeWriter
     {
         private static readonly Dictionary<Type, string> Types = new Dictionary<Type, string>
         {
@@ -27,6 +28,21 @@ namespace SharpTypes
             { typeof(DateTime), "string" }
         };
 
+        private readonly List<string> _duplicatesGuard;
+
+        public TypeWriter()
+        {
+            _duplicatesGuard = new List<string>();
+        }
+
+        public void Write(IEnumerable<Type> types, TextWriter textWriter)
+        {
+            foreach (var type in types)
+            {
+                Write(type, textWriter);
+            }
+        }
+
         public void Write(Type type, TextWriter textWriter)
         {
             var nestedTypes = new List<Type>();
@@ -36,6 +52,13 @@ namespace SharpTypes
             {
                 return;
             }
+
+            if (_duplicatesGuard.Contains(classType.Name))
+            {
+                return;
+            }
+
+            _duplicatesGuard.Add(classType.Name);
 
             var properties = classType.GetProperties();
 
@@ -54,13 +77,9 @@ namespace SharpTypes
                 }
             }
 
-            textWriter.Write("}");
+            textWriter.Write("}\n");
 
-            foreach (var nestedType in nestedTypes)
-            {
-                textWriter.Write("\n");
-                Write(nestedType, textWriter);
-            }
+            Write(nestedTypes, textWriter);
         }
 
         private static Type GetClassType(Type type)
@@ -75,7 +94,8 @@ namespace SharpTypes
                 return GetClassType(type.GetElementType());
             }
 
-            if (type.GetInterfaces().Any(i => i == typeof(IEnumerable)) && type.GenericTypeArguments.Length == 1)
+            if ((type.GetInterfaces().Any(i => i == typeof(IEnumerable)) && type.GenericTypeArguments.Length == 1)
+                || type.BaseType == typeof(Task) && type.IsGenericType)
             {
                 return GetClassType(type.GenericTypeArguments[0]);
             }
